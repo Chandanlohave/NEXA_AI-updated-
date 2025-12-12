@@ -48,31 +48,46 @@ export const generateIntroductoryMessage = async (user: UserProfile): Promise<st
 };
 
 export const generateVisualExplanation = async (prompt: string, history: {role: string, parts: {text: string}[]}[]): Promise<{text: string, imageUrl?: string}> => {
-    try {
-        const ai = getAiClient();
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: [...history, { role: 'user', parts: [{ text: prompt }] }]
-        });
+    // Model fallback chain for images
+    const visualModels = ['gemini-2.5-flash-image', 'gemini-1.5-flash'];
+    
+    let lastError;
 
-        let text = "Mera visual explanation taiyaar hai.";
-        let imageUrl: string | undefined = undefined;
+    for (const model of visualModels) {
+        try {
+            const ai = getAiClient();
+            // 1.5-flash doesn't support 'gemini-1.5-flash-image' as a distinct name usually, 
+            // but the SDK handles image generation on the main model.
+            // However, strictly adhering to likely availability:
+            
+            const response = await ai.models.generateContent({
+                model: model,
+                contents: [...history, { role: 'user', parts: [{ text: prompt }] }]
+            });
 
-        if (response.candidates && response.candidates.length > 0) {
-            for (const part of response.candidates[0].content.parts) {
-                if (part.text) {
-                    text = part.text.trim();
-                } else if (part.inlineData) {
-                    const base64EncodeString: string = part.inlineData.data;
-                    imageUrl = `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
+            let text = "Mera visual explanation taiyaar hai.";
+            let imageUrl: string | undefined = undefined;
+
+            if (response.candidates && response.candidates.length > 0) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.text) {
+                        text = part.text.trim();
+                    } else if (part.inlineData) {
+                        const base64EncodeString: string = part.inlineData.data;
+                        imageUrl = `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
+                    }
                 }
             }
+            return { text, imageUrl };
+        } catch (error) {
+            console.warn(`Visual Model ${model} failed:`, error);
+            lastError = error;
+            // Try next model
         }
-        return { text, imageUrl };
-    } catch (error) {
-        console.error("Gemini Visual Gen Error:", error);
-        throw error;
     }
+    
+    console.error("All visual models failed.");
+    throw lastError;
 };
 
 export const generateTextResponse = async (
@@ -144,7 +159,6 @@ export const generateTextResponse = async (
     `;
   }
 
-  // Command handling logic (Karishma, Song, etc.) is implicit via prompt engineering in the history or input
   systemInstruction += `
     **SPECIAL COMMANDS:**
     - **Karishma Reconciliation:** If input is "nexa tumko bhabhi se kuch bolna hai", deliver the specific heartfelt message for Karishma ji.
@@ -166,32 +180,44 @@ export const generateTextResponse = async (
     { category: HarmCategory.DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
   ];
 
-  try {
-    // Attempt 1: Try using the cutting edge gemini-2.5-flash
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [...history, { role: 'user', parts: [{ text: input }] }],
-      config: { ...commonConfig, thinkingConfig: { thinkingBudget: 0 } },
-      safetySettings,
-    });
-    return response.text || "I'm sorry, I couldn't process that. Please try again.";
-  } catch (error: any) {
-    console.warn("Gemini 2.5 Flash failed, attempting fallback to 1.5 Flash. Error:", error);
-    
-    // Attempt 2: Fallback to reliable gemini-1.5-flash if 2.5 is not available (404) or fails
+  // DEFINED FALLBACK CHAIN
+  // 1. 2.5-flash (Standard/Target)
+  // 2. 2.0-flash-exp (Experimental, often available if 2.5 isn't)
+  // 3. 1.5-flash (Legacy Stable, most likely to work if others fail)
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-flash'];
+  
+  let lastError;
+
+  for (const model of modelsToTry) {
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash', // Fallback model
-        contents: [...history, { role: 'user', parts: [{ text: input }] }],
-        config: commonConfig, // 1.5 doesn't support thinkingConfig
-        safetySettings,
-      });
-      return response.text || "I'm sorry, I couldn't process that.";
-    } catch (fallbackError) {
-      console.error("Gemini Text Gen Error (Fallback also failed):", fallbackError);
-      throw fallbackError; // Throw the original error or the fallback error
+        const isAdvancedModel = model.includes('2.5');
+        
+        // Construct config based on model capability
+        const modelConfig = { ...commonConfig };
+        
+        // Only add thinking budget to 2.5 series to avoid errors on older models
+        if (isAdvancedModel) {
+            (modelConfig as any).thinkingConfig = { thinkingBudget: 0 };
+        }
+
+        const response = await ai.models.generateContent({
+          model: model,
+          contents: [...history, { role: 'user', parts: [{ text: input }] }],
+          config: modelConfig,
+          safetySettings,
+        });
+
+        return response.text || "I'm sorry, I couldn't process that.";
+    } catch (error: any) {
+        console.warn(`Model ${model} failed. Trying next...`, error);
+        lastError = error;
+        // Continue to next model in loop
     }
   }
+
+  // If loop finishes without returning, throw the last error
+  console.error("All text models failed.");
+  throw lastError;
 };
 
 export const generateSpeech = async (text: string, role: UserRole, isAngry = false, retryCount = 0): Promise<ArrayBuffer | null> => {
@@ -200,14 +226,12 @@ export const generateSpeech = async (text: string, role: UserRole, isAngry = fal
         const ai = getAiClient();
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-preview-tts',
-            // Explicitly set role and ensure parts structure is clean
             contents: [{ role: 'user', parts: [{ text: text }] }],
             config: {
                 responseModalities: [Modality.AUDIO],
                 speechConfig: {
                     voiceConfig: {
                         prebuiltVoiceConfig: {
-                            // FIXED: Always use 'Kore' (Female) regardless of state.
                             voiceName: 'Kore'
                         }
                     }
@@ -230,12 +254,11 @@ export const generateSpeech = async (text: string, role: UserRole, isAngry = fal
         // Simple retry logic for 500 or XHR errors
         if (retryCount < 2 && (error.code === 500 || error.message?.includes('xhr error') || error.status === 500)) {
             console.warn(`TTS Attempt ${retryCount + 1} failed, retrying...`);
-            // Exponential backoff: 500ms, 1000ms
             await new Promise(r => setTimeout(r, 500 * (retryCount + 1))); 
             return generateSpeech(text, role, isAngry, retryCount + 1);
         }
         console.error("Gemini TTS Error:", error);
-        // We do not throw here to allow the app to continue with just text if TTS fails
+        // Don't throw, just return null so app continues without voice
         return null;
     }
 };
