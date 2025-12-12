@@ -1,0 +1,32 @@
+{
+  "name": "NEXA AI",
+  "short_name": "NEXA",
+  "start_url": "/index.html",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#29dfff",
+  "description": "Your futuristic AI assistant.",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3csvg width='512' height='512' viewBox='0 0 512 512' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='512' height='512' fill='black'/%3e%3cpath d='M139.636 416V96H224.909L372.364 301.091V96H416V416H330.727L183.273 210.909V416H139.636Z' fill='%2329DFFF'/%3e%3c/svg%3e",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3csvg width='512' height='512' viewBox='0 0 512 512' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='512' height='512' fill='black'/%3e%3cpath d='M139.636 416V96H224.909L372.364 301.091V96H416V416H330.727L183.273 210.909V416H139.636Z' fill='%2329DFFF'/%3e%3c/svg%3e",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml,%3csvg width='512' height='512' viewBox='0 0 512 512' fill='none' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='512' height='512' fill='black'/%3e%3cpath d='M139.636 416V96H224.909L372.364 301.091V96H416V416H330.727L183.273 210.909V416H139.636Z' fill='%2329DFFF'/%3e%3c/svg%3e",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

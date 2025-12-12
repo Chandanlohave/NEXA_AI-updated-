@@ -1,0 +1,7 @@
+{
+  "name": "NEXA AI Assistant v5.8",
+  "description": "Futuristic JARVIS-style AI Assistant with advanced personality engine, voice interaction, and mobile-first design.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
