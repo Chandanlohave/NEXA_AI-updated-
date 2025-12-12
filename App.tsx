@@ -238,30 +238,47 @@ const App: React.FC = () => {
     setSystemStatus('initializing');
     localStorage.setItem('nexa_user', JSON.stringify(profile));
     localStorage.setItem(`nexa_user_${profile.mobile}`, JSON.stringify(profile));
-    memoryRef.current = [];
-    setChatLog([]);
-    localStorage.removeItem(`nexa_chat_${profile.mobile}`);
+
+    // --- REVISED MEMORY/STATE LOGIC ---
+    const savedMemoryRaw = localStorage.getItem(`nexa_chat_${profile.mobile}`);
+    const savedMemory = savedMemoryRaw ? JSON.parse(savedMemoryRaw) : [];
+    memoryRef.current = savedMemory;
+    setChatLog(savedMemory);
     setPendingIntro(null);
   
     try {
-      let dynamicIntro = await generateIntroductoryMessage(profile);
-      if (profile.role === UserRole.ADMIN) {
-        try {
-          const notifications: string[] = JSON.parse(localStorage.getItem('nexa_admin_notifications') || '[]');
-          if (notifications.length > 0) {
-            const names = notifications.map(n => n.match(/user '(.*?)'/)?.[1]).filter(Boolean as any as (x: string | undefined) => x is string);
-            if (names.length > 0) {
-              const uniqueNames = [...new Set(names)];
-              let nameSummary = uniqueNames.length === 1 ? uniqueNames[0] : (uniqueNames.length === 2 ? `${uniqueNames[0]} aur ${uniqueNames[1]}` : `${uniqueNames.slice(0, -1).join(', ')}, aur ${uniqueNames[uniqueNames.length - 1]}`);
-              const notificationPrefix = `Sir, aapke wapas aane ka intezaar tha. Ek choti si report hai... jab aap yahan nahi the, tab ${nameSummary} aapke baare mein pooch rahe the. Aap chinta mat kijiye, maine sab aache se, apne style me, sambhal liya hai.`;
-              dynamicIntro = `${notificationPrefix}\n\n${dynamicIntro}`;
+      if (savedMemory.length === 0) {
+        // This is a fresh session, play intro
+        setHudState(HUDState.THINKING); // Set state BEFORE rendering main UI
+        
+        let dynamicIntro = await generateIntroductoryMessage(profile);
+        
+        // Admin notification logic for fresh sessions
+        if (profile.role === UserRole.ADMIN) {
+          try {
+            const notifications: string[] = JSON.parse(localStorage.getItem('nexa_admin_notifications') || '[]');
+            if (notifications.length > 0) {
+              const names = notifications.map(n => n.match(/user '(.*?)'/)?.[1]).filter(Boolean as any as (x: string | undefined) => x is string);
+              if (names.length > 0) {
+                const uniqueNames = [...new Set(names)];
+                let nameSummary = uniqueNames.length === 1 ? uniqueNames[0] : (uniqueNames.length === 2 ? `${uniqueNames[0]} aur ${uniqueNames[1]}` : `${uniqueNames.slice(0, -1).join(', ')}, aur ${uniqueNames[uniqueNames.length - 1]}`);
+                const notificationPrefix = `Sir, aapke wapas aane ka intezaar tha. Ek choti si report hai... jab aap yahan nahi the, tab ${nameSummary} aapke baare mein pooch rahe the. Aap chinta mat kijiye, maine sab aache se, apne style me, sambhal liya hai.`;
+                dynamicIntro = `${notificationPrefix}\n\n${dynamicIntro}`;
+              }
+              localStorage.removeItem('nexa_admin_notifications');
             }
-            localStorage.removeItem('nexa_admin_notifications');
-          }
-        } catch(e) { console.error("Failed to process admin notifications", e); localStorage.removeItem('nexa_admin_notifications'); }
+          } catch(e) { console.error("Failed to process admin notifications", e); localStorage.removeItem('nexa_admin_notifications'); }
+        }
+        
+        setPendingIntro(dynamicIntro);
+
+      } else {
+        // This is a returning session, no intro, go to IDLE
+        setHudState(HUDState.IDLE);
       }
+
       setSystemStatus('ready');
-      if (memoryRef.current.length === 0) { setPendingIntro(dynamicIntro); } else { setHudState(HUDState.IDLE); }
+
     } catch (e: any) {
       console.error("Initialization Error:", e);
       let friendlyError = 'Connection to NEXA Core failed. Please try again.';
