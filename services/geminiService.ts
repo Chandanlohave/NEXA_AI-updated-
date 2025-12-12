@@ -3,19 +3,16 @@ import { UserProfile, UserRole } from "../types";
 
 const getAiClient = () => {
   // API Key strategy:
-  // 1. Auth component handles obtaining the key (either from User Input or Env Var for Admin).
-  // 2. Auth component saves it to localStorage 'nexa_api_key'.
-  // 3. Service just reads it.
-  const apiKey = localStorage.getItem('nexa_api_key');
+  // 1. Check process.env.API_KEY (System/Build time key) - PRIORITY
+  // 2. Check localStorage 'nexa_api_key' (User entered key)
+  
+  const apiKey = process.env.API_KEY || localStorage.getItem('nexa_api_key');
   
   if (!apiKey) {
     throw new Error("API_KEY_MISSING");
   }
   return new GoogleGenAI({ apiKey });
 };
-
-// REMOVED: transliterateHindiToHinglish to save API calls and reduce latency.
-// The main model handles Hindi -> Hinglish conversion implicitly via system instructions.
 
 export const generateIntroductoryMessage = async (user: UserProfile): Promise<string> => {
   const now = new Date();

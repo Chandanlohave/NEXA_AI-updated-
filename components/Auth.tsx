@@ -98,11 +98,18 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [glitchText, setGlitchText] = useState('SYSTEM_LOCKED');
   const [initStatusText, setInitStatusText] = useState('TAP TO CONNECT');
+  const [hasSystemKey, setHasSystemKey] = useState(false);
 
   useEffect(() => {
-    // Check if API key exists in storage
+    // Check if API key exists in storage or ENV
     const storedKey = localStorage.getItem('nexa_api_key');
-    if (storedKey) {
+    const envKey = process.env.API_KEY;
+
+    if (envKey) {
+        // If Env key exists, use it and hide input
+        setHasSystemKey(true);
+        setFormData(prev => ({ ...prev, apiKey: envKey }));
+    } else if (storedKey) {
         setFormData(prev => ({ ...prev, apiKey: storedKey }));
     }
   }, []);
@@ -153,11 +160,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     if (formData.username === 'Chandan' && formData.password === 'Nexa') {
       // ADMIN LOGIC:
       // If Admin provides a key, use it.
-      // If Admin leaves key blank, try to use the build-time env variable (your key).
+      // If Admin leaves key blank, try to use the build-time env variable.
       let keyToUse = formData.apiKey;
 
       if (!keyToUse || keyToUse.length < 10) {
-        // Fallback for Admin only
         if (process.env.API_KEY) {
            keyToUse = process.env.API_KEY;
         } else {
@@ -197,8 +203,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
     }
     
     // USER LOGIC:
-    // Regular users MUST provide a key. No fallback.
-    if (formData.apiKey.length < 20) {
+    // If system key is present, we skip validation on formData.apiKey
+    if (!hasSystemKey && formData.apiKey.length < 20) {
         setError('// ERROR: VALID GEMINI API KEY REQUIRED');
         return;
     }
@@ -214,8 +220,10 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   const verifyOtp = () => {
     if (formData.otp === generatedOtp) {
-      // Save API Key
-      localStorage.setItem('nexa_api_key', formData.apiKey);
+      // Save API Key if user entered it (if not system key)
+      if (!hasSystemKey) {
+        localStorage.setItem('nexa_api_key', formData.apiKey);
+      }
       
       completeLogin({
         name: formData.fullName,
@@ -319,14 +327,19 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                </div>
                
                <div>
-                 <BracketInput name="apiKey" placeholder="GEMINI API KEY" type="password" value={formData.apiKey} onChange={handleChange} autoFocus />
-                 <div className="text-center mb-4">
-                    <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[9px] text-nexa-cyan/60 hover:text-nexa-cyan underline font-mono cursor-pointer">
-                        GET API KEY HERE
-                    </a>
-                 </div>
+                 {/* Only show API Key input if system key is NOT present */}
+                 {!hasSystemKey && (
+                   <>
+                    <BracketInput name="apiKey" placeholder="GEMINI API KEY" type="password" value={formData.apiKey} onChange={handleChange} autoFocus />
+                    <div className="text-center mb-4">
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[9px] text-nexa-cyan/60 hover:text-nexa-cyan underline font-mono cursor-pointer">
+                            GET API KEY HERE
+                        </a>
+                    </div>
+                   </>
+                 )}
 
-                 <BracketInput name="fullName" placeholder="NAME" value={formData.fullName} onChange={handleChange} />
+                 <BracketInput name="fullName" placeholder="NAME" value={formData.fullName} onChange={handleChange} autoFocus={hasSystemKey} />
                  <GenderSelect selected={formData.gender} onSelect={(g) => { setFormData({...formData, gender: g}); setError(''); }} />
                  <BracketInput name="mobile" placeholder="MOBILE" type="tel" value={formData.mobile} onChange={handleChange} />
                </div>
@@ -366,8 +379,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                <div className="space-y-4 relative z-20">
                  <BracketInput name="username" placeholder="IDENTITY_ID" value={formData.username} onChange={handleChange} autoFocus variant="red" />
                  <BracketInput name="password" placeholder="ACCESS_KEY" type="password" value={formData.password} onChange={handleChange} variant="red" className="password-hidden" />
-                 {/* ADMIN KEY INPUT: Optional. If left blank, system uses Env var. */}
-                 <BracketInput name="apiKey" placeholder="API KEY (AUTO)" type="password" value={formData.apiKey} onChange={handleChange} variant="red" />
+                 {/* ADMIN KEY INPUT: Show only if manual override needed (or system key not present) */}
+                 <BracketInput name="apiKey" placeholder={hasSystemKey ? "API KEY (SYSTEM LINKED)" : "API KEY (AUTO)"} type="password" value={formData.apiKey} onChange={handleChange} variant="red" />
                </div>
 
                <div className="pt-8 space-y-4 relative z-20">
