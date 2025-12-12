@@ -158,21 +158,9 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
 
   const handleAdminLogin = () => {
     if (formData.username === 'Chandan' && formData.password === 'Nexa') {
-      // ADMIN LOGIC:
-      // If Admin provides a key, use it.
-      // If Admin leaves key blank, try to use the build-time env variable.
-      let keyToUse = formData.apiKey;
-
-      if (!keyToUse || keyToUse.length < 10) {
-        if (process.env.API_KEY) {
-           keyToUse = process.env.API_KEY;
-        } else {
-           setError('// ERROR: NO SYSTEM API KEY FOUND');
-           return;
-        }
-      }
-
-      localStorage.setItem('nexa_api_key', keyToUse);
+      // Admin Login: Always clear any user-provided API key from storage.
+      // This forces the geminiService to fall back to the system's process.env.API_KEY.
+      localStorage.removeItem('nexa_api_key');
       
       completeLogin({
         name: 'Chandan',
@@ -379,8 +367,6 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
                <div className="space-y-4 relative z-20">
                  <BracketInput name="username" placeholder="IDENTITY_ID" value={formData.username} onChange={handleChange} autoFocus variant="red" />
                  <BracketInput name="password" placeholder="ACCESS_KEY" type="password" value={formData.password} onChange={handleChange} variant="red" className="password-hidden" />
-                 {/* ADMIN KEY INPUT: Show only if manual override needed (or system key not present) */}
-                 <BracketInput name="apiKey" placeholder={hasSystemKey ? "API KEY (SYSTEM LINKED)" : "API KEY (AUTO)"} type="password" value={formData.apiKey} onChange={handleChange} variant="red" />
                </div>
 
                <div className="pt-8 space-y-4 relative z-20">

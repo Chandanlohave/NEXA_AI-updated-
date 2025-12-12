@@ -19,12 +19,14 @@ export const generateIntroductoryMessage = async (user: UserProfile): Promise<st
   const hour = now.getHours();
   let time_based_greeting;
 
-  if (hour >= 4 && hour < 12) {
+  if (hour >= 4 && hour < 12) { // 4am to 11:59am
     time_based_greeting = 'morning';
-  } else if (hour >= 12 && hour < 17) {
+  } else if (hour >= 12 && hour < 17) { // 12pm to 4:59pm
     time_based_greeting = 'afternoon';
-  } else {
+  } else if (hour >= 17 && hour < 21) { // 5pm to 8:59pm
     time_based_greeting = 'evening';
+  } else { // 9pm to 3:59am
+    time_based_greeting = 'night';
   }
 
   // Determine Honorific
