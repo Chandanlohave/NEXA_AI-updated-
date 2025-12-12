@@ -411,7 +411,11 @@ const App: React.FC = () => {
 
   const handleApiError = (error: any, context: string) => {
     console.error(`Error in ${context}:`, error);
-    const errorMessage: ChatMessage = { role: 'model', text: `SYSTEM ERROR: Failed to call the Gemini API.`, timestamp: Date.now() };
+    let errorDetail = "Failed to call the Gemini API.";
+    if (error && error.message) {
+       errorDetail = error.message;
+    }
+    const errorMessage: ChatMessage = { role: 'model', text: `SYSTEM ERROR: ${errorDetail}`, timestamp: Date.now() };
     setChatLog(prev => [...prev, errorMessage]);
     setHudState(HUDState.IDLE);
     isProcessingRef.current = false;
